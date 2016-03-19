@@ -117,11 +117,11 @@ public:
 
 inline char str_to_val(string value)
 {
-    if (value.compare("n"))
+    if (!value.compare("n"))
         return 1; //b001
-    if (value.compare("m"))
+    if (!value.compare("m"))
         return 2; //b010
-    if (value.compare("y"))
+    if (!value.compare("y"))
         return 3; //b011
 
     assert(false);
