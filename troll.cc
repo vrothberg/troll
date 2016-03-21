@@ -560,36 +560,9 @@ void print_help()
     cout << "usage: troll file [-t [threads]]\n";
     cout << "the (batch) file must contain paths to configuration files\n\n";
     cout << "optional arguments:\n";
+    cout << "    -b    " << " path to batch file (mandatory option)\n";
+    cout << "    -h    " << " print this help message\n";
     cout << "    -t    " << " define number of threads (default: 1)\n";
-}
-
-
-char * parse_args(int argc, char ** argv)
-{
-    if (argc == 1) {
-        cout << "Please specify the required arguments\n\n";
-        print_help();
-        exit(-1);
-    }
-    if (argc > 2) {
-        string thr("-t");
-        for (int i = 2; i < argc; i++) {
-            if (thr.compare(string(argv[i])) == 0) {
-                if (i+1 == argc) {
-                    cout << "Please specify the number of threads\n\n";
-                    print_help();
-                    exit(-1);
-                }
-                stringstream(argv[i+1]) >> MAXTHREADS;
-                if (MAXTHREADS <= 0) {
-                    cout << "Please specify a valid number of threads (>=1)\n\n";
-                    print_help();
-                    exit(-1);
-                }
-            }
-        }
-    }
-    return argv[1];
 }
 
 
@@ -598,11 +571,34 @@ int main(int argc, char** argv)
     // parse batch file, configurations and build the graph
     vector<string>* paths;
     char** graph;
-    char *batch;
+    char *path_batch = 0;
     int gsize;
 
-    batch = parse_args(argc, argv);
-    paths= parse_batch_file(batch);
+    int opt = 0;
+    while ((opt = getopt(argc, argv, "b:c:t:h")) != -1) {
+        switch (opt) {
+        case 'b':
+            path_batch = optarg;
+            break;
+        case 'h':
+            print_help();
+            exit(0);
+        case 't':
+            MAXTHREADS = std::stoi(optarg);
+            if (MAXTHREADS < 1) {
+                std::cout << "Invalid number of threads, defaulting to 1.\n";
+                MAXTHREADS = 1;
+            }
+            break;
+        }
+    }
+
+    if (!path_batch) {
+        std::cout << "Please specify the mandatory batch file.\n";
+        exit(1);
+    }
+
+    paths= parse_batch_file(path_batch);
     gsize = parse_configs(paths);
     graph = build_graph(gsize);
 
