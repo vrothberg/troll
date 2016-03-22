@@ -559,7 +559,7 @@ vector<vector<int>*>* empty_graph(char **graph, int gsize)
 void print_help()
 {
     cout << "troll -- merge (partial) Kconfig configuration files\n\n";
-    cout << "usage: troll file [-t [threads]]\n";
+    cout << "usage: troll -b batch [-t [threads]]\n";
     cout << "the (batch) file must contain paths to configuration files\n\n";
     cout << "optional arguments:\n";
     cout << "    -b    " << " path to batch file (mandatory option)\n";
