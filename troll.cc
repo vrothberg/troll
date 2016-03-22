@@ -354,10 +354,22 @@ void update_graph(char** graph, vector<int>* clique, int gsize)
 {
     DEBUG << "... updating graph" << endl;
 
-    struct task_update_data args[MAXTHREADS];
-    pthread_t threads[MAXTHREADS];
+    struct task_update_data *args;
+    pthread_t *threads;
     pthread_attr_t attr;
     int rc;
+
+    args = (struct task_update_data *) calloc(MAXTHREADS, sizeof(struct task_update_data));
+    if (!args) {
+        cout << "Error: allocation failed\n";
+        exit(-1);
+    }
+
+    threads = (pthread_t *) calloc(MAXTHREADS, sizeof(pthread_t));
+    if (!args) {
+        cout << "Error: allocation failed\n";
+        exit(-1);
+    }
 
     vector<int> nodes(*clique);
     assert(!nodes.empty());
