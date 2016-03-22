@@ -124,6 +124,8 @@ inline char str_to_val(string value)
     if (!value.compare("y"))
         return 3; //b011
 
+    cout << "UNKOWN VALUE: " << value << endl;
+
     assert(false);
 }
 
@@ -520,7 +522,7 @@ void merge_and_dump_configs(vector<vector<int>*> *cliques)
         // dump config
         stringstream path;
         fstream myfile;
-        path << "troll_config." << (int) nr_clique++ << "." << (int) clique->size();
+        path << "troll.config." << (int) nr_clique++ << "." << (int) clique->size();
         myfile.open(path.str(), ios::out);
 
         unordered_map<int, int>::iterator con_it;
