@@ -575,6 +575,7 @@ void print_help()
     cout << "the (batch) file must contain paths to configuration files\n\n";
     cout << "optional arguments:\n";
     cout << "    -b    " << " path to batch file (mandatory option)\n";
+    cout << "    -d    " << " build and dump graph\n";
     cout << "    -h    " << " print this help message\n";
     cout << "    -t    " << " define number of threads (default: 1)\n";
 }
@@ -587,12 +588,16 @@ int main(int argc, char** argv)
     char** graph;
     char *path_batch = 0;
     int gsize;
+    bool dump = false;
 
     int opt = 0;
-    while ((opt = getopt(argc, argv, "b:c:t:h")) != -1) {
+    while ((opt = getopt(argc, argv, "b:c:t:dh")) != -1) {
         switch (opt) {
         case 'b':
             path_batch = optarg;
+            break;
+        case 'd':
+            dump = true;
             break;
         case 'h':
             print_help();
@@ -615,6 +620,11 @@ int main(int argc, char** argv)
     paths= parse_batch_file(path_batch);
     gsize = parse_configs(paths);
     graph = build_graph(gsize);
+
+    if (dump) {
+        dump_graph(graph, gsize);
+        exit(0);
+    }
 
     // iteratively find and select cliques in the graph
     vector<vector<int>*> cliques;
