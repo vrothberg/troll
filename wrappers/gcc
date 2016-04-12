@@ -1,0 +1,75 @@
+#!/usr/bin/python3
+
+import sys
+import os
+import shutil
+from subprocess import *
+
+#export PATH=$PWD:$PATH
+
+# Preprocess Only
+# make C=0 -j 32
+
+# Syntax Only
+# make C=1 -j32
+
+def call_gcc(args):
+   x = Popen(["/usr/bin/gcc"] + args, stdin=sys.stdin, stdout=sys.stdout, stderr=sys.stderr)
+
+   retcode = x.wait()
+
+   return retcode
+
+def dummy_objectfile(object_file, args):
+   if "-m16" in args:
+      fn = "dummy-16.o"
+      extra_args = "-m16"
+   elif "-m32" in args:
+      fn = "dummy-32.o"
+      extra_args = "-m32"
+   else:
+      fn = "dummy-64.o"
+      extra_args = ""
+
+   if not os.path.exists(fn):
+      x = Popen("/usr/bin/gcc -xc - -c " + extra_args + " -o " + fn + " < /dev/null", shell=True)
+      x.wait()
+   shutil.copyfile(fn, object_file)
+
+def preprocess_only(args, object_file):
+   args = [x for x in args if x != "-c"] + ["-E"]
+   args[args.index("-o") + 1] = "/dev/null"
+   #print(os.path.abspath("."), args)
+   dummy_objectfile(object_file, args)
+   return call_gcc(args)
+
+def syntax_only(args, object_file):
+   args = args + ["-fsyntax-only"]
+   retcode = call_gcc(args)
+   dummy_objectfile(object_file, args)
+   return retcode
+
+if __name__ == '__main__':
+   compile_level = int(os.environ.get("C", "2"))
+   args = sys.argv[1:]
+
+   bad_pattern = lambda x: x.startswith("scripts") \
+                 or "tools/relocs" in x \
+                 or "tools/objtool" in x \
+                 or x.startswith("samples") \
+                 or x.startswith("Documentation")
+
+   if "-o" in sys.argv and "-c" in sys.argv \
+      and not any(bad_pattern(arg) for arg in sys.argv) \
+      and args[args.index("-o") + 1] != "-":
+      object_file = sys.argv[sys.argv.index("-o") + 1]
+      if compile_level == 0:
+         retcode = preprocess_only(args, object_file)
+      elif compile_level == 1:
+         retcode = syntax_only(args, object_file)
+      else:
+         retcode = call_gcc(sys.argv[1:])
+   else:
+      retcode = call_gcc(sys.argv[1:])
+
+   sys.exit(retcode)
