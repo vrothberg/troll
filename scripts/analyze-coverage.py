@@ -2,8 +2,6 @@
 
 """
 Script to analyze trolled configurations.
-
-Visit https://gitlab.cs.fau.de/vrothberg/troll for more information.
 """
 
 # (c) 2016 Valentin Rothberg <rothberg@cs.fau.de>
@@ -82,9 +80,9 @@ def parse_options():
                         help="load (previously dumped) file (pickle format) " \
                              "and do coverage analysis")
 
-    parser.add_argument('--syntax-only', dest='syntax', action='store_true',
+    parser.add_argument('--parse-gcc', dest='parse_gcc', action='store_true',
                         default=False,
-                        help="call 'gcc -fsyntax-only' on each file")
+                        help="parse GCC compiler warnings from stdin, e.g. via 'make 2>&1 > /dev/null | ...'")
 
     args, _ = parser.parse_known_args()
 
@@ -203,12 +201,12 @@ def insert_warnings(path):
             indexes.append(i+1)
 
     logging.debug(" %s : Inserting #warning at line %s" % (path, 1))
-    lines.insert(0, "#warning COVERAGE FILE:%s LINE:%s BLOCK:%s\n" % (path, '1', '00'))
+    lines.insert(0, "#warning COVERAGE %s %s %s\n" % (path, '1', '00'))
 
     count = 1
     for i in indexes:
         logging.debug(" % s : Inserting #warning at line %s" % (path, i+count))
-        lines.insert(i + count, "#warning COVERAGE FILE:%s LINE:%s BLOCK:%s\n" % (path, i, count))
+        lines.insert(i + count, "#warning COVERAGE %s %s %s\n" % (path, i, count))
         count += 1
 
     with open("%s" % path, "w") as fdc:
@@ -279,7 +277,6 @@ def dump_data(data, path):
     pickle.dump(data, open(path, "wb"))
 
 
-
 def load_data(path):
     """
     Load data from @path.
@@ -290,12 +287,37 @@ def load_data(path):
         sys.exit("Could not load data from '%s'\n%s" % (path, e))
 
 
+def parse_gcc_stdin():
+    """
+    Parse GCC warnigs from stdin.
+    """
+    data = dict()
+    lines = set()
+
+    coverage = " #warning COVERAGE "
+    offset = len(coverage) - 1
+
+    for line in sys.stdin:
+        if not line.startswith(coverage):
+            continue
+        else:
+            line = line.strip()[offset:]
+            lines.add(line)
+
+    for line in lines:
+        print line
+
+
 if __name__ == "__main__":
     args = parse_options()
 
     files = []
     data = {}
     num_threads = cpu_count()
+
+    # parse gcc warnings from stdin
+    if args.parse_gcc:
+        parse_gcc_stdin()
 
     # parse batch file and add paths to @files list
     if args.batch:
