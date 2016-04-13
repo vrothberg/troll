@@ -32,37 +32,60 @@ def parse_options():
     User interface of this module.
     """
     parser = argparse.ArgumentParser()
+
     parser.add_argument('-a', '--analyze', dest='analyze', action='store_true',
                         default=False,
                         help="analyze coverage (in Linux tree only)")
+
     parser.add_argument('-b', '--batch', dest='batch', action='store',
                         default=None,
                         help="batchfile")
+
     parser.add_argument('-c', '--config', dest='config', action='store',
                         default="",
                         help="use this config for analysis (make only)")
+
+    parser.add_argument('--count', dest='count', action='store_true',
+                        default=False,
+                        help="count number of CPP blocks")
+
+    parser.add_argument('-e', '--expand', dest='expand', action='store_true',
+                        default=False,
+                        help="expand specified configurations")
+
     parser.add_argument('-i', '--insert', dest='insert', action='store_true',
                         default=False,
                         help="insert CPP warnings")
+
     parser.add_argument('-f', '--file', dest='file', action='store',
                         default=None,
                         help="file")
+
     parser.add_argument('-t', '--threads', dest='threads', action='store',
                         default=None,
                         help="specify number of threads")
+
+    parser.add_argument('-s', '--strategy', dest='strategy', action='store',
+                        default="allnoconfig",
+                        help="expansion strategy for all unspecified options (-e)")
+
     parser.add_argument('-v', '--verbose', dest='verbose', action='count',
                         default=0,
                         help="increase verbosity (specify multiple times for more)")
+
     parser.add_argument('--dump', dest='dump', action='store',
                         default=None,
                         help="dump coverage data to this file (pickle format)")
+
     parser.add_argument('--load', dest='load', action='store',
                         default=None,
                         help="load (previously dumped) file (pickle format) " \
                              "and do coverage analysis")
+
     parser.add_argument('--syntax-only', dest='syntax', action='store_true',
                         default=False,
                         help="call 'gcc -fsyntax-only' on each file")
+
     args, _ = parser.parse_known_args()
 
     # setup logging
@@ -84,7 +107,7 @@ def percentage(part, whole):
     return 100 * float(part)/float(whole)
 
 
-def execute(cmd):
+def execute(cmd, fail=True):
     """
     Execute %cmd and return stdout.  Exit in case of error.
     """
@@ -92,7 +115,9 @@ def execute(cmd):
     pop = Popen(cmd, stdout=PIPE, stderr=STDOUT, shell=True)
     (stdout, _) = pop.communicate()  # wait until finished
     if pop.returncode != 0:
-        sys.exit(stdout)
+        logging.error(stdout)
+        if fail:
+            sys.exit(-1)
     return stdout
 
 
@@ -119,24 +144,12 @@ def parse_coverage_data(lines):
     return data
 
 
-def file_syntax_analysis(path):
+def build_config(num_threads, config, dir=""):
     """
-    Run gcc syntax analysis (i.e., parse but don't compile) on @path, parse the
-    CPP warnings and return a dictionary of the following format
-    {file : list of tuples(block, start line)}.
+    Build config and return stdout.
     """
-    cmd = "gcc -fsyntax-only %s" % path
-    stdout = execute(cmd)
-    return parse_coverage_data(stdout.split("\n"))
-
-
-def make_syntax_analysis(num_threads, config):
-    """
-    Analyze coverage in current Linux tree.  Return a dictionary of the
-    following format {file : list of tuples(block, start line)}.
-    """
-    stdout = execute("KCONFIG_ALLCONFIG=%s make -j%s -m kernel/sched/ " % (config, num_threads))
-    return parse_coverage_data(stdout.split("\n"))
+    stdout = execute("KCONFIG_ALLCONFIG=%s make -j%s %s" % (config, num_threads, dir))
+    return stdout
 
 
 def count_blocks(path):
@@ -158,32 +171,18 @@ def count_blocks(path):
     return count
 
 
-def coverage_analysis(data):
+def block_stats(batch):
     """
-    Analyze coverage @data and print results on stdout.
+    Return a dict with the format {path: #ifdef blocks}.
     """
-    all_blocks = 0
-    enabled_blocks = 0
-
-    if not data:
-        logging.info("Coverage analysis: no data to analyze")
-        return
-
-    for file in sorted(data.keys()):
-        all = count_blocks(file)
-        enabled = len(data[file])
-        perc = percentage(enabled, all)
-
-        assert(perc <= float(100))
-
-        print("%s: %.2f%% coverage: %s of %s blocks enabled" % (file, perc, enabled, all))
-
-        all_blocks += all
-        enabled_blocks += enabled
-
-    perc = percentage(enabled_blocks, all_blocks)
-    print("%.2f%% total coverage: %s of %s blocks enabled" % (perc, enabled_blocks, all_blocks))
-
+    stats = {}
+    total = 0
+    for path in batch:
+        count = count_blocks(path)
+        stats[path] = count
+        total += count
+    print("%s #CPP blocks detected" % total)
+    return stats
 
 
 def insert_warnings(path):
@@ -215,6 +214,25 @@ def insert_warnings(path):
     with open("%s" % path, "w") as fdc:
         for line in lines:
             fdc.write(line)
+
+
+def expand_config(config, strategy="allnoconfig"):
+    """
+    Expand the specified @config.  All unspecified options will be set
+    according to the specified @strategy.
+    """
+    cmd = "rm .config"
+    execute(cmd, fail=False)
+
+    cmd = "KCONFIG_ALLCONFIG=%s make %s" % (config, strategy)
+    out = execute(cmd)
+    logging.debug(out)
+
+    cmd = "scripts/diffconfig %s .config > %s.diff" % (config, config)
+    execute(cmd)
+
+    cmd = "mv .config %s.expanded" % config
+    execute(cmd)
 
 
 def partition(lst, size):
@@ -272,43 +290,37 @@ def load_data(path):
         sys.exit("Could not load data from '%s'\n%s" % (path, e))
 
 
-def main():
+if __name__ == "__main__":
     args = parse_options()
 
     files = []
     data = {}
     num_threads = cpu_count()
 
+    # parse batch file and add paths to @files list
     if args.batch:
         files = parse_batch_file(args.batch)
 
+    # add specified file to @files list
     if args.file:
         files.append(args.file)
 
     if args.threads:
         num_threads = int(args.threads)
 
+    # expand the specified @files and suffix them with ".expanded"
+    if args.expand:
+        for file in files:
+            expand_config(file, args.strategy)
+        sys.exit()
+
+    # count all CPP blocks in @files
+    if args.count:
+        block_stats(files)
+        sys.exit()
+
+    # insert CPP #warnings in each CPP block of all @files
     if args.insert:
         pool = Pool(num_threads, init_worker)
         arglist = partition(files, num_threads)
         pool.map(insert_worker, arglist)
-
-    if args.load:
-        data = load_data(args.load)
-        print(data)
-        coverage_analysis(data)
-        sys.exit()
-
-    if args.analyze:
-        if args.syntax:
-            data = file_syntax_analysis(args.file)
-        else:
-            data = make_syntax_analysis(num_threads, args.config)
-        coverage_analysis(data)
-
-    if args.dump:
-        dump_data(data, args.dump)
-
-
-if __name__ == "__main__":
-    main()
