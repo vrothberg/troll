@@ -2,16 +2,29 @@ CFLAGS = -Wall -O3
 CXXFLAGS = $(CFLAGS) -std=gnu++11
 CC = g++
 LDLIBS = -lpthread
-PROGS = troll
+
 OBJS = troll.o
 
-all: $(PROGS)
+PREFIX ?= /usr/local
+BINDIR ?= $(PREFIX)/bin
 
-troll:  $(OBJS)
+all: troll
+	$(MAKE) -C pmc/
+
+troll: $(OBJS)
 	$(CC) $(CXXFLAGS) -o troll $(OBJS) $(LDLIBS)
 
 clean:
 	rm -rf *.o
-	rm -rf $(PROGS)
+	rm -rf troll
+	$(MAKE) -C pmc/ clean
 
-.PHONY: all clean
+install: all
+	install -D troll $(BINDIR)
+	install -D pmc/pmc $(BINDIR)
+
+uninstall:
+	-rm -f $(BINDIR)/troll
+	-rm -f $(BINDIR)/pmc
+
+.PHONY: all clean install uninstall
