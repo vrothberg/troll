@@ -231,7 +231,7 @@ def expand_config(config, strategy="allnoconfig"):
     cmd = "scripts/diffconfig %s .config > %s.diff" % (config, config)
     execute(cmd)
 
-    cmd = "mv .config %s.expanded" % config
+    cmd = "cp .config %s.expanded" % config
     execute(cmd)
 
 
