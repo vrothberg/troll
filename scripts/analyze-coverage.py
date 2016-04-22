@@ -11,6 +11,7 @@ Script to analyze trolled configurations.
 
 import argparse
 import logging
+import os
 import pickle
 import re
 import signal
@@ -219,8 +220,9 @@ def expand_config(config, strategy="allnoconfig"):
     Expand the specified @config.  All unspecified options will be set
     according to the specified @strategy.
     """
-    cmd = "rm .config"
-    execute(cmd, fail=False)
+    if os.path.exists(".config"):
+        cmd = "rm .config"
+        execute(cmd, fail=False)
 
     cmd = "KCONFIG_ALLCONFIG=%s make %s" % (config, strategy)
     out = execute(cmd)
