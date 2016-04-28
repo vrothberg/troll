@@ -252,7 +252,6 @@ def main():
     """
     args = parse_options()
 
-    files = []
 
     # parse gcc warnings from stdin
     if args.parse_gcc:
@@ -275,9 +274,11 @@ def main():
         sys.exit()
 
 
-    ######################################
-    # everything below requires -f or -b #
-    ######################################
+    ########################################
+    ## everything below requires -f or -b ##
+    ########################################
+
+    files = []
 
     # parse batch file and add paths to @files list
     if args.batch:
@@ -297,6 +298,10 @@ def main():
     if args.insert:
         for path in files:
             insert_warnings(path)
+        sys.exit()
+
+    # nothing has been specified so let's tell the user
+    sys.exit("Please give me some work, there's nothing to do :-(")
 
 
 if __name__ == "__main__":
