@@ -1,0 +1,303 @@
+#!/usr/bin/env python2
+"""
+Script to analyze trolled configurations.
+"""
+
+# (c) 2016 Valentin Rothberg <rothberg@cs.fau.de>
+#
+# Licensed under the terms of the GNU GPL License version 3
+
+
+import argparse
+import logging
+import os
+import re
+import sys
+
+from subprocess import Popen, PIPE, STDOUT
+
+REGEX_BLOCK = re.compile(r"^\s*#(if|else|elif)")
+REGEX_ESC = re.compile(r".*\\\s*$")
+REGEX_WARN = re.compile(r"\s*#warning COVERAGE FILE:([^\s]*) LINE:([0-9]+) BLOCK:([0-9]+)")
+
+
+def parse_options():
+    """
+    User interface of this module.
+    """
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('-a', '--analyze', dest='analyze', action='store', default=None,
+                        help="analyze coverage data (in Linux tree only)")
+
+    parser.add_argument('-b', '--batch', dest='batch', action='store', default=None,
+                        help="batch file (i.e., list of files to be processed)")
+
+    parser.add_argument('-e', '--expand', dest='expand', action='store_true', default=False,
+                        help="expand specified configurations")
+
+    parser.add_argument('-i', '--insert', dest='insert', action='store_true', default=False,
+                        help="insert CPP warnings")
+
+    parser.add_argument('-f', '--file', dest='file', action='store', default=None,
+                        help="append this file to the batch list")
+
+    parser.add_argument('-s', '--strategy', dest='strategy', action='store', default="allnoconfig",
+                        help="expansion strategy for all unspecified options (-e)")
+
+    parser.add_argument('-v', '--verbose', dest='verbose', action='count', default=0,
+                        help="increase verbosity (specify multiple times for more)")
+
+    parser.add_argument('--parse-gcc', dest='parse_gcc', action='store_true', default=False,
+                        help="parse GCC compiler warnings from stdin, e.g. via "
+                             "'make 2>&1 > /dev/null | ...'")
+
+    parser.add_argument('--files-for-arch', dest='files_for_arch', action='store', default=None,
+                        help="return a list of files for the specified architecture ")
+
+    args, _ = parser.parse_known_args()
+
+    # setup logging
+    lvl = logging.WARNING  # default
+    if args.verbose == 1:
+        lvl = logging.INFO
+    elif args.verbose >= 2:
+        lvl = logging.DEBUG
+
+    logging.basicConfig(level=lvl)
+
+    return args
+
+
+def execute(cmd, fail=True):
+    """
+    Execute %cmd and return stdout.  Exit in case of error.
+    """
+    logging.info(" executing '%s'", cmd)
+
+    pop = Popen(cmd, stdout=PIPE, stderr=STDOUT, shell=True)
+    (stdout, _) = pop.communicate()  # wait until finished
+    if pop.returncode != 0:
+        logging.error(stdout)
+        if fail:
+            sys.exit(-1)
+
+    return stdout
+
+
+def parse_coverage_data(lines):
+    """
+    Parse each line in @lines for CPP coverage warnings and return a dictionary
+    of the following format {file : list of covered blocks}.
+    """
+    data = {}
+
+    for line in lines:
+        split = line.split(" ")
+        path = split[0]
+        block = split[1]
+
+        blocks = data.get(path, set())
+        blocks.add(block)
+        data[path] = blocks
+
+    return data
+
+
+def evaluate_coverage_data(data):
+    """
+    Evaluate covered blocks from @data and print results to stdout in the
+    following format: "path, #blocks, #covered blocks"
+    """
+    total_blocks = 0
+    total_covered = 0
+
+    for path in sorted(data.keys()):
+        if not "./drivers/usb" in path:
+            continue
+        blocks = count_blocks(path)
+        covered = len(data[path])
+        print "%s, %s, %s" % (path, blocks, covered)
+
+        total_blocks += blocks
+        total_covered += covered
+
+    print "total coverage: %s of %s" % (total_covered, total_blocks)
+
+
+def count_blocks(path):
+    """
+    Return the number of CPP blocks in the @path.
+    """
+    lines = []
+    with open(path, "r") as fdc:
+        lines = fdc.readlines()
+
+    count = 1  # B00 (i.e., the file itself)
+    for i in range(0, len(lines)):
+        if REGEX_BLOCK.match(lines[i]):
+            count += 1
+            while REGEX_ESC.match(lines[i]):
+                i += 1
+
+    logging.debug("%s contains %s CPP blocks", path, count)
+    return count
+
+
+def insert_warnings(path):
+    """
+    Insert CPP warnings in each #ifdef block in @path.
+    """
+    lines = []
+    with open(path, "r") as fdc:
+        lines = fdc.readlines()
+
+    indexes = []
+    for i in range(0, len(lines)):
+        if REGEX_BLOCK.match(lines[i]):
+            while REGEX_ESC.match(lines[i]):
+                i += 1
+            assert i < len(lines)
+            indexes.append(i+1)
+
+    logging.debug(" %s : Inserting #warning at line %s", path, 1)
+    lines.insert(0, "#warning COVERAGE %s %s %s\n" % (path, '1', '00'))
+
+    count = 1
+    for i in indexes:
+        logging.debug(" % s : Inserting #warning at line %s", path, i+count)
+        lines.insert(i + count, "#warning COVERAGE %s %s %s\n" % (path, i, count))
+        count += 1
+
+    with open("%s" % path, "w") as fdc:
+        for line in lines:
+            fdc.write(line)
+
+
+def expand_config(config, strategy="allnoconfig"):
+    """
+    Expand the specified @config.  All unspecified options will be set
+    according to the specified @strategy.
+    """
+    if os.path.exists(".config"):
+        cmd = "rm .config"
+        execute(cmd, fail=False)
+
+    cmd = "KCONFIG_ALLCONFIG=%s make %s" % (config, strategy)
+    out = execute(cmd)
+    logging.debug(out)
+
+    cmd = "scripts/diffconfig %s .config > %s.diff" % (config, config)
+    execute(cmd)
+
+    cmd = "cp .config %s.expanded" % config
+    execute(cmd)
+
+
+def read_file(path):
+    """
+    Return lines of @path.
+    """
+    lines = []
+    with open(path, "r") as fdc:
+        for line in fdc.readlines():
+            lines.append(line.strip())
+    return lines
+
+
+def parse_gcc_stdin():
+    """
+    Parse GCC warnigs from stdin.
+    """
+    lines = set()
+
+    coverage = " #warning COVERAGE "
+    offset = len(coverage) - 1
+
+    for line in sys.stdin:
+        if not line.startswith(coverage):
+            continue
+        else:
+            line = line.strip()[offset:]
+            lines.add(line)
+
+    for line in lines:
+        print line
+
+
+def get_files_for_arch(arch):
+    """
+    Return a list of files related to the specified @arch.  Note, that this is
+    an over approximation.  Only the feature model, the build system, a parser
+    and a SAT checker paired with incredibly good programming skills will tell
+    us which files are truely reachable by @arch.
+    """
+    if not os.path.exists("arch/%s/" % arch):
+        sys.exit("Could not find path to architecture '%s'" % arch)
+
+    dirs = ["block/", "certs/", "crypto/", "drivers/", "firmware/", "fs/",  \
+            "include/", "init/", "ipc/", "kernel/", "lib/", "mm/", "net/",  \
+            "security/", "sound/", "usr/", "virt/"]
+
+    dirs.append("arch/%s/" % arch)
+
+    cmd = "find %s -name \"*.[cSsh]\"" % " ".join(dirs)
+    stdout = execute(cmd)
+    return [x for x in stdout.split("\n") if x]
+
+
+def main():
+    """
+    Entry point of this module.
+    """
+    args = parse_options()
+
+    files = []
+
+    # parse gcc warnings from stdin
+    if args.parse_gcc:
+        parse_gcc_stdin()
+        sys.exit()
+
+    # analyze coverage data and print results to stdout
+    if args.analyze:
+        lines = read_file(args.analyze)
+        data = parse_coverage_data(lines)
+        evaluate_coverage_data(data)
+        sys.exit()
+
+    # print list of files related to the architecture on stdout
+    if args.files_for_arch:
+        arch = args.files_for_arch
+        files = get_files_for_arch(arch)
+        for path in files:
+            print path
+        sys.exit()
+
+
+    ######################################
+    # everything below requires -f or -b #
+    ######################################
+
+    # parse batch file and add paths to @files list
+    if args.batch:
+        files = read_file(args.batch)
+
+    # add specified file to @files list
+    if args.file:
+        files.append(args.file)
+
+    # expand the specified @files and suffix them with ".expanded"
+    if args.expand:
+        for path in files:
+            expand_config(path, args.strategy)
+        sys.exit()
+
+    # insert CPP #warnings in each CPP block of all @files
+    if args.insert:
+        for path in files:
+            insert_warnings(path)
+
+
+if __name__ == "__main__":
+    main()
