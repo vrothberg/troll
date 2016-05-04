@@ -17,13 +17,11 @@ if ["$1" == ""]; then
     exit 1
 fi
 
-DIR=""
+DIR="./"
 
 if ["$2" != ""]; then
     DIR="$2"
 fi
-
-return
 
 for config in "$1"/*
 do
@@ -36,5 +34,5 @@ do
     KCONFIG_ALLCONFIG=$config make allyesconfig > /dev/null
 
     echo "Building kernel.  All CPP warnings will be copied to $config.warnings"
-    time nice -n10 make C=0 -j8 $2 2>&1 > /dev/null | coverage-analyzer --parse-gcc > $config.warnings
+    time nice -n10 make C=0 -j8 $2/ 2>&1 > /dev/null | coverage-analyzer --parse-gcc > $config.warnings
 done
