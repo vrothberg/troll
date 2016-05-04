@@ -1,4 +1,5 @@
-
+#!/bin/bash -e
+#
 # (c) 2016 Valentin Rothberg <rothberg@cs.fau.de>
 #
 # Licensed under the terms of the GNU GPL License version 3
