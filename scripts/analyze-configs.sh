@@ -7,7 +7,7 @@ usage () {
     echo "Use this script to collect CPP warnings."
     echo ""
     echo "1st parameter:  path to directory containing configuration files"
-    echo "2nd parameter:  path to directory to be compiled (e.g., drivers/usb/) (default: \"\")"
+    echo "2nd parameter:  path to directory to be compiled (e.g., drivers/usb/) (default: \"./\")"
 }
 
 if ["$1" == ""]; then
