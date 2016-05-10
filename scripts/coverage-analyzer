@@ -1,6 +1,6 @@
 #!/usr/bin/env python2
 """
-Script to analyze trolled configurations.
+Script to use, analyze and evaluate Troll.
 """
 
 # (c) 2016 Valentin Rothberg <rothberg@cs.fau.de>
@@ -23,12 +23,9 @@ REGEX_WARN = re.compile(r"\s*#warning COVERAGE FILE:([^\s]*) LINE:([0-9]+) BLOCK
 
 def parse_options():
     """
-    User interface of this module.
+    User interface of this script.
     """
     parser = argparse.ArgumentParser()
-
-    parser.add_argument('-a', '--analyze', dest='analyze', action='store', default=None,
-                        help="analyze coverage data (in Linux tree only)")
 
     parser.add_argument('-b', '--batch', dest='batch', action='store', default=None,
                         help="batch file (i.e., list of files to be processed)")
@@ -50,7 +47,11 @@ def parse_options():
 
     parser.add_argument('--parse-gcc', dest='parse_gcc', action='store_true', default=False,
                         help="parse GCC compiler warnings from stdin, e.g. via "
-                             "'make 2>&1 > /dev/null | ...'")
+                             "'make C=1 2>&1 > /dev/null | ...'")
+
+    parser.add_argument('--parse-cov', dest='parse_cov', action='store_true', default=False,
+                        help="parse GCC coverage compiler-warnings from stdin, e.g. via "
+                             "'make C=0 2>&1 > /dev/null | ...'")
 
     parser.add_argument('--files-for-arch', dest='files_for_arch', action='store', default=None,
                         help="return a list of files for the specified architecture ")
@@ -85,46 +86,7 @@ def execute(cmd, fail=True):
     return stdout
 
 
-def parse_coverage_data(lines):
-    """
-    Parse each line in @lines for CPP coverage warnings and return a dictionary
-    of the following format {file : list of covered blocks}.
-    """
-    data = {}
-
-    for line in lines:
-        split = line.split(" ")
-        path = split[0]
-        block = split[1]
-
-        blocks = data.get(path, set())
-        blocks.add(block)
-        data[path] = blocks
-
-    return data
-
-
-def evaluate_coverage_data(data):
-    """
-    Evaluate covered blocks from @data and print results to stdout in the
-    following format: "path, #blocks, #covered blocks"
-    """
-    total_blocks = 0
-    total_covered = 0
-
-    for path in sorted(data.keys()):
-        if not "./drivers/usb" in path:
-            continue
-        blocks = count_blocks(path)
-        covered = len(data[path])
-        print "%s, %s, %s" % (path, blocks, covered)
-
-        total_blocks += blocks
-        total_covered += covered
-
-    print "total coverage: %s of %s" % (total_covered, total_blocks)
-
-
+# TODO: unused
 def count_blocks(path):
     """
     Return the number of CPP blocks in the @path.
@@ -205,9 +167,9 @@ def read_file(path):
     return lines
 
 
-def parse_gcc_stdin():
+def parse_cov_stdin():
     """
-    Parse GCC warnigs from stdin.
+    Parse GCC coverage warnings from stdin.
     """
     lines = set()
 
@@ -220,6 +182,28 @@ def parse_gcc_stdin():
         else:
             line = line.strip()[offset:]
             lines.add(line)
+
+    for line in lines:
+        print line
+
+
+def parse_gcc_stdin():
+    """
+    Parse GCC warnings from stdin.
+    """
+    lines = set()
+
+    for line in sys.stdin:
+        # strip whitespaces and add lines to the set
+        line = line.strip()
+
+        # skip unneeded build information
+        if line.startswith("CC ") or \
+           line.startswith("LD ") or \
+           line.startswith("CHECK "):
+               continue
+
+        lines.add(line)
 
     for line in lines:
         print line
@@ -258,11 +242,9 @@ def main():
         parse_gcc_stdin()
         sys.exit()
 
-    # analyze coverage data and print results to stdout
-    if args.analyze:
-        lines = read_file(args.analyze)
-        data = parse_coverage_data(lines)
-        evaluate_coverage_data(data)
+    # parse gcc coverage from stdin
+    if args.parse_cov:
+        parse_cov_stdin()
         sys.exit()
 
     # print list of files related to the architecture on stdout
@@ -274,9 +256,9 @@ def main():
         sys.exit()
 
 
-    ########################################
-    ## everything below requires -f or -b ##
-    ########################################
+    ######################################################
+    ## everything below requires input files (-f or -b) ##
+    ######################################################
 
     files = []
 
