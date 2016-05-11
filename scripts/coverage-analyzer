@@ -53,6 +53,10 @@ def parse_options():
                         help="parse GCC coverage compiler-warnings from stdin, e.g. via "
                              "'make C=0 2>&1 > /dev/null | ...'")
 
+    parser.add_argument('--count-warnings', dest='count_warnings', action='store_true', default=False,
+                        help="count _unique_ GCC warnings from stdin")
+
+
     parser.add_argument('--files-for-arch', dest='files_for_arch', action='store', default=None,
                         help="return a list of files for the specified architecture ")
 
@@ -171,7 +175,7 @@ def parse_cov_stdin():
     """
     Parse GCC coverage warnings from stdin.
     """
-    lines = set()
+    data = set()
 
     coverage = " #warning COVERAGE "
     offset = len(coverage) - 1
@@ -181,9 +185,9 @@ def parse_cov_stdin():
             continue
         else:
             line = line.strip()[offset:]
-            lines.add(line)
+            data.add(line)
 
-    for line in lines:
+    for line in sorted(data):
         print line
 
 
@@ -191,7 +195,7 @@ def parse_gcc_stdin():
     """
     Parse GCC warnings from stdin.
     """
-    lines = set()
+    data = set()
 
     for line in sys.stdin:
         # strip whitespaces and add lines to the set
@@ -203,9 +207,38 @@ def parse_gcc_stdin():
            line.startswith("CHECK "):
                continue
 
-        lines.add(line)
+        data.add(line)
 
-    for line in lines:
+    for line in sorted(data):
+        print line
+
+
+def count_warning_stdin():
+    """
+    Count _unique_ GCC warnings from stdin.
+    """
+    # Example format of a warning:
+    # drivers/usb/gadget/function/u_serial.c:395:17: some description
+
+    data = set()
+
+    for line in sys.stdin:
+        line = line.strip()
+
+        if "advancing past deep designator" in line:
+            # see: http://marc.info/?l=linux-sparse&m=130673652023059&w=4
+            continue
+
+        split = line.split(":")
+        if len(split) < 4:
+            continue
+
+        file = split[0]
+        loc = split[1]
+
+        data.add("%s_%s" % (file, loc))
+
+    for line in sorted(data):
         print line
 
 
@@ -245,6 +278,11 @@ def main():
     # parse gcc coverage from stdin
     if args.parse_cov:
         parse_cov_stdin()
+        sys.exit()
+
+    # count gcc warnings from stdin
+    if args.count_warnings:
+        count_warning_stdin()
         sys.exit()
 
     # print list of files related to the architecture on stdout
