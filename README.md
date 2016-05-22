@@ -2,7 +2,7 @@
 
 **Troll** is a tool written in C++ with the main purpose of merging a specified set of Kconfig configurations to a smaller set of configurations potentially enabling more options and hence more code for further tests and (static) analysis.
 
-![](figures/troll.jpg)
+![](figures/troll.png)
 
 # Background: Configurations for Software Testing
 
@@ -91,6 +91,12 @@ To evaluate our configs we use two metrics:
 
 2. Amount of GCC warnings: it's a widely used metric to compare the quality/coverage of configs.
 
-In the following table, we compare three kinds of configs.  We compare our 121 Troll'ed configs with 121 randconfigs.  As a baseline we compare those configs with the config Greg Kroah-Hartman (Linux USB maintainer) uses for build testing USB code.
+In the following table, we compare three kinds of configs.  We compare our 121 Troll'ed configs with 121 randconfigs.  A huge **thank you** to *Greg Kroah-Hartman* (USB maintainer among many other things) for kindly sharing the Kernel config he uses to build test USB related code, which we take as a baseline.  The table compares the **Top n** configs from Troll and randconfig.  Note that the Troll Top n are sorted w.r.t. their IDs (i.e., biggest clique first), randconfigs are sorted w.r.t. to the amount of config options being either set to 'y' or 'm' -- the hypothesis is that the more options are enabled the higher coverage is.
+
+We can see that Troll'ed configs instantly outperform the baseline with the first config, and show considerable improvements with the Top 3 configs.  Although randconfig yields more GCC warnings at Top 2, it can only beat Troll'ed configs when considering all configurations.
+
+In this scenario, Troll shows promising results, especially when considering that entire process from building the models, sampling the USB source files and merging the partial configurations takes **less than 30 seconds**.  An evaluation in greater detail will be released in a follow-up paper.
+
+**Happy Troll'ing!**
 
 ![](figures/usb_table.png "Troll'ed configs for USB.")
