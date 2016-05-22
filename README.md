@@ -6,7 +6,9 @@
 
 # Background: Configurations for Software Testing
 
-Testing software at scale of Linux has many faces.  There are static checks, for instance with [Coccinelle](http://coccinelle.lip6.fr/), build tests, boot tests, run-time and performance tests, fuzzing and many more.  In nearly all cases, we need a kernel config in order to build Linux.  Recent Linux kernels ship nearly 16,000 configuration options, so when it comes to testing we want to make sure that we test as many variants of our code (i.e., differnt configs) as possible.  Testing systematically as many variants or configurations of our code as possible is crucial for the efficiency for software testing.  However, generating a set of configurations for a given set of source files, such as drivers, subsystems, or entire architectures, is non-trivial.  Firstly, configuring Linux is complex and tiresome.  Which of those thousands of options is relevant for our use-case?  Second, the constraints among those options are spread over Kconfig files, build-system files and even in #ifdef blocks in the source code.  Thus, manually generating configurations that reach a satisfying coverage in terms of variants is impossible.
+Testing software at scale of Linux has many faces.  There are static checks, for instance with [Coccinelle](http://coccinelle.lip6.fr/), build tests, boot tests, run-time and performance tests, fuzzing and many more.  In nearly all cases, we need a kernel config in order to build Linux.  Recent Linux kernels ship nearly 16,000 configuration options, so when it comes to testing we want to make sure that we test as many variants of our code (i.e., different configs) as possible.
+
+Testing systematically as many variants or configurations of our code as possible is crucial for the efficiency for software testing -- blindly testing code is a huge waste resources.  However, generating a set of configurations for a given set of source files, such as drivers, subsystems, or entire architectures, is non-trivial.  Firstly, configuring Linux is complex and tiresome.  Which of those thousands of options is relevant for our use-case?  Second, the constraints among those options are spread over Kconfig files, build-system files and even in #ifdef blocks in the source code.  Thus, manually generating configurations that reach a satisfying coverage in terms of variants is impossible.
 
 The developers of Troll looked at the state-of-the-art in the Linux and the research community how to tackle the problem of finding configurations for testing, and found space for improvement.  The main issue is that approaches from the Linux community scale, but are not systematic, while research approaches are systematic but do not scale.  Same old story, right?  In the following, we briefly discuss those approaches and explain why Troll can help to improve the state-of-the-art of generating configurations for testing.
 
@@ -15,7 +17,7 @@ The developers of Troll looked at the state-of-the-art in the Linux and the rese
 The Linux community has in general two ways to deal with configurations for testing:
 
 1. Maintaining a pre-defined set of configurations
-    * Developers, maintainers and continuous-integration frameworks, for instance [Kernel CI](https://kernelci.org/) or Intel's [0-Day infrastructure](https://01.org/lkp/) have a set of configs depending on the drivers, subsystem, architecture, etc. that is subject of testing.  Such configs are known to work well for testing huge parts of the system.  However, the configs need to be maintained and evolved as the variability model evolves (i.e., Kconfig, Kbuild, #ifdefs, etc).
+    * Developers, maintainers and continuous-integration frameworks, for instance [Kernel CI](https://kernelci.org/) or Intel's [0-Day infrastructure](https://01.org/lkp/) have a set of configs depending on the drivers, subsystem, architecture, etc. that is subject of testing.  Such configs are known to work well for testing huge parts of the system.  However, the configs need to be maintained and evolved as the variability model (i.e., Kconfig, Kbuild, #ifdefs, etc) evolves as well.
 
 2. Using ```$ make randconfig```
     * ```randconfig``` assigns random values to most configuration options, depending on the selected architecture (e.g., ARM, X86_64).  Such random configs are widely used in continuous integrations and have proven to detect a huge amount of bugs -- just browse [Linux mailing lists](http://vger.kernel.org/vger-lists.html).
@@ -43,7 +45,7 @@ Thanks to the [PMC](https://www.cs.purdue.edu/homes/dgleich/codes/maxcliques/) m
 
 Here's a rather verbose step-by-step guide how to use Troll in the Linux kernel.
 
-Let's assume we are a Linux USB developer; we integrated a bunch of changes and now want to do some build tests before issuing run-time tests.  Instead of using a pre-defined set of configs which are likely not to cover newly integrated code, we can use Undertaker to generate a set of configurations that Troll merges afterwards.  Note that configs generated by Undertaker are also known as **partial configurations**, since only such config options that are relevant to enable the #ifdef blocks in the respective source files are considered.
+Let's assume we are a Linux USB developer; we integrated a bunch of changes and now want to do some build tests before issuing run-time tests.  Instead of using a pre-defined set of configs which are likely not to cover newly integrated code, we can use Undertaker to generate a set of configurations that Troll merges afterwards.  Note that configs generated by Undertaker are also known as **partial configurations**, since only such config options that are relevant to enable the #ifdef blocks in the respective source files are considered.  Those configs will not compile unless being *expanded*, for instance via ```$ KCONFIG_ALLCONFIG=/path/to/partial/config make allyesconfig ```.
 
 
 ## Step 1: Finding a Set of Files
@@ -87,13 +89,13 @@ At this point we used **Troll** to merge previously generated partial configurat
 
 To evaluate our configs we use two metrics:
 
-1. Configuration coverage: in other words the amount of #ifdef blocks being compiled by a config.  There is some handy scripts shipped with Troll to do such analysis.
+1. **Configuration coverage**: in other words the amount of #ifdef blocks being compiled by a config.  There is some handy scripts shipped with Troll to do such analysis.
 
-2. Amount of GCC warnings: it's a widely used metric to compare the quality/coverage of configs.
+2. Amount of **GCC warnings**: it's a widely used metric to compare the quality/coverage of configs.
 
-In the following table, we compare three kinds of configs.  We compare our 121 Troll'ed configs with 121 randconfigs.  A huge **thank you** to *Greg Kroah-Hartman* (USB maintainer among many other things) for kindly sharing the Kernel config he uses to build test USB related code, which we take as a baseline.  The table compares the **Top n** configs from Troll and randconfig.  Note that the Troll Top n are sorted w.r.t. their IDs (i.e., biggest clique first), randconfigs are sorted w.r.t. to the amount of config options being either set to 'y' or 'm' -- the hypothesis is that the more options are enabled the higher coverage is.
+In the following table, we compare three kinds of configs.  We compare our 121 Troll'ed configs with 121 randconfigs.  A huge **thank you** to *Greg Kroah-Hartman* (USB maintainer among many other things) for kindly sharing the Kernel config he uses to build test USB related code, which we take as a baseline.  The table compares the **Top n** configs from Troll and randconfig.  Note that the Troll Top n are sorted w.r.t. their IDs, randconfigs are sorted w.r.t. to the amount of config options being either set to 'y' or 'm' -- the hypothesis is that the more options are enabled the higher coverage is.
 
-We can see that Troll'ed configs instantly outperform the baseline with the first config, and show considerable improvements with the Top 3 configs.  Although randconfig yields more GCC warnings at Top 2, it can only beat Troll'ed configs when considering all configurations.
+We can see that Troll'ed configs instantly outperform the baseline with the first config, and show considerable improvements with the Top 3 configs.  Although randconfig yields more GCC warnings at Top 2 than baseline, it can only beat Troll'ed configs when considering all configurations.
 
 In this scenario, Troll shows promising results, especially when considering that entire process from building the models, sampling the USB source files and merging the partial configurations takes **less than 30 seconds**.  An evaluation in greater detail will be released in a follow-up paper.
 
