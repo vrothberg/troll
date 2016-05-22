@@ -2,7 +2,9 @@
 
 **Troll** is a tool written in C++ with the main purpose of merging a specified set of Kconfig configurations to a smaller set of configurations potentially enabling more options and hence more code for further tests and (static) analysis.
 
-![](figures/troll.png)
+<p align="center">
+<img src="figures/troll.png" width="400" height="400" />
+</p>
 
 # Background: Configurations for Software Testing
 
@@ -103,4 +105,6 @@ In this scenario, Troll shows promising results, especially when considering tha
 
 **Happy Troll'ing!**
 
-![](figures/usb_table.png "Troll'ed configs for USB.")
+<p align="center">
+<img src="figures/usb_table.png" width="700"/>
+</p>
