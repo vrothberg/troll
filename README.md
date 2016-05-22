@@ -2,6 +2,8 @@
 
 **Troll** is a tool written in C++ with the main purpose of merging a specified set of Kconfig configurations to a smaller set of configurations potentially enabling more options and hence more code for further tests and (static) analysis.
 
+![](figures/troll.jpg)
+
 # Background: Configurations for Software Testing
 
 Testing software at scale of Linux has many faces.  There are static checks, for instance with [Coccinelle](http://coccinelle.lip6.fr/), build tests, boot tests, run-time and performance tests, fuzzing and many more.  In nearly all cases, we need a kernel config in order to build Linux.  Recent Linux kernels ship nearly 16,000 configuration options, so when it comes to testing we want to make sure that we test as many variants of our code (i.e., differnt configs) as possible.  Testing systematically as many variants or configurations of our code as possible is crucial for the efficiency for software testing.  However, generating a set of configurations for a given set of source files, such as drivers, subsystems, or entire architectures, is non-trivial.  Firstly, configuring Linux is complex and tiresome.  Which of those thousands of options is relevant for our use-case?  Second, the constraints among those options are spread over Kconfig files, build-system files and even in #ifdef blocks in the source code.  Thus, manually generating configurations that reach a satisfying coverage in terms of variants is impossible.
