@@ -53,6 +53,7 @@ Let's assume we are a Linux USB developer; we integrated a bunch of changes and 
 Let's first get a set of files of our interest, and remember, we are USB developer:
 
 ``` $ find drivers/usb include/linux/usb/ -name "*.[cSsh]" > usb.batch ```
+
 ``` $ echo "include/linux/usb.h" >> usb.batch ```
 
 
@@ -67,6 +68,7 @@ After downloading and installing [Undertaker](https://undertaker.cs.fau.de) (the
 Now the more interesting part starts -- generating partial configurations -- which we do by using the previously generated batch file *usb.batch*.  Since Troll also requires a batch file specifying the partial configs of interested, we collect them right after generation.
 
 ``` $ undertaker -j coverage -m models/x86.model -t#CPUs -b usb.batch ```
+
 ``` $ find drivers/usb/ -name "*.config[0-9]*" > usb.configs ```
 
 
