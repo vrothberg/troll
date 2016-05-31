@@ -10,7 +10,7 @@
 
 Testing software at scale of Linux has many faces.  There are static checks, for instance with [Coccinelle](http://coccinelle.lip6.fr/), build tests, boot tests, run-time and performance tests, fuzzing and many more.  In nearly all cases, we need a kernel config in order to build Linux.  Recent Linux kernels ship nearly 16,000 configuration options, so when it comes to testing we want to make sure that we test as many variants of our code (i.e., different configs) as possible.
 
-Testing systematically as many variants or configurations of our code as possible is crucial for the efficiency for software testing -- blindly testing code is a huge waste resources.  However, generating a set of configurations for a given set of source files, such as drivers, subsystems, or entire architectures, is non-trivial.  Firstly, configuring Linux is complex and tiresome.  Which of those thousands of options is relevant for our use-case?  Second, the constraints among those options are spread over Kconfig files, build-system files and even in #ifdef blocks in the source code.  Thus, manually generating configurations that reach a satisfying coverage in terms of variants is impossible.
+Testing systematically as many variants or configurations of our code as possible is crucial for the efficiency for software testing -- blindly testing code is a huge waste of resources.  However, generating a set of configurations for a given set of source files, such as drivers, subsystems, or entire architectures, is non-trivial.  Configuring Linux is complex and tiresome:  Which of those thousands of options is relevant for our use-case?  Second, the constraints among those options are spread over Kconfig files, build-system files and even in #ifdef blocks in the source code.  Thus, manually generating configurations that reach a satisfying coverage in terms of variants is impossible.
 
 The developers of Troll looked at the state-of-the-art in the Linux and the research community how to tackle the problem of finding configurations for testing, and found space for improvement.  The main issue is that approaches from the Linux community scale, but are not systematic, while research approaches are systematic but do not scale.  Same old story, right?  In the following, we briefly discuss those approaches and explain why Troll can help to improve the state-of-the-art of generating configurations for testing.
 
@@ -101,7 +101,7 @@ In the following table, we compare three kinds of configs.  We compare our 121 T
 
 We can see that Troll'ed configs instantly outperform the baseline with the first config, and show considerable improvements with the Top 3 configs.  Although randconfig yields more GCC warnings at Top 2 than baseline, it can only beat Troll'ed configs when considering all configurations.
 
-In this scenario, Troll shows promising results, especially when considering that entire process from building the models, sampling the USB source files and merging the partial configurations takes **less than 30 seconds**.  An evaluation in greater detail will be released in a follow-up paper.
+In this scenario, Troll shows promising results, especially when considering that the entire process from building the models, sampling the USB source files and merging the partial configurations takes **less than 30 seconds**.  An evaluation in greater detail will be released in a follow-up paper.
 
 **Happy Troll'ing!**
 
