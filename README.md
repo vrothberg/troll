@@ -1,6 +1,6 @@
 # Troll
 
-**Troll** is a tool written in C++ with the main purpose of merging a specified set of Kconfig configurations to a smaller set of configurations potentially enabling more options and hence more code for further tests and (static) analysis.
+**Troll** is a tool to merge a specified set of Kconfig configurations to a smaller set of configurations which enable the same code but reduce the necessary builds for testing.
 
 <p align="center">
 <img src="figures/troll.png" width="400" height="400" />
@@ -8,7 +8,7 @@
 
 # Background: Configurations for Software Testing
 
-Testing software at scale of Linux has many faces.  There are static checks, for instance with [Coccinelle](http://coccinelle.lip6.fr/), build tests, boot tests, run-time and performance tests, fuzzing and many more.  In nearly all cases, we need a kernel config in order to build Linux.  Recent Linux kernels ship nearly 16,000 configuration options, so when it comes to testing we want to make sure that we test as many variants of our code (i.e., different configs) as possible.
+Testing software at scale of Linux has many faces.  There are static checks, for instance with [Coccinelle](http://coccinelle.lip6.fr/), build tests, boot tests, run-time and performance tests, fuzzing and many more.  In nearly all cases, we need a kernel config in order to build Linux.  Recent Linux kernels ship more than 15,000 configuration options, so when it comes to testing we want to make sure that we test as much code as possible.
 
 Testing systematically as many variants or configurations of our code as possible is crucial for the efficiency for software testing -- blindly testing code is a huge waste of resources.  However, generating a set of configurations for a given set of source files, such as drivers, subsystems, or entire architectures, is non-trivial.  Configuring Linux is complex and tiresome:  Which of those thousands of options is relevant for our use-case?  Second, the constraints among those options are spread over Kconfig files, build-system files and even in #ifdef blocks in the source code.  Thus, manually generating configurations that reach a satisfying coverage in terms of variants is impossible.
 
@@ -19,23 +19,23 @@ The developers of Troll looked at the state-of-the-art in the Linux and the rese
 The Linux community has in general two ways to deal with configurations for testing:
 
 1. Maintaining a pre-defined set of configurations
-    * Developers, maintainers and continuous-integration frameworks, for instance [Kernel CI](https://kernelci.org/) or Intel's [0-Day infrastructure](https://01.org/lkp/) have a set of configs depending on the drivers, subsystem, architecture, etc. that is subject of testing.  Such configs are known to work well for testing huge parts of the system.  However, the configs need to be maintained and evolved as the variability model (i.e., Kconfig, Kbuild, #ifdefs, etc) evolves as well.
+    * Developers, maintainers and continuous-integration frameworks, for instance [Kernel CI](https://kernelci.org/) or Intel's [0-Day infrastructure](https://01.org/lkp/) have a set of pre-defined configs depending on the drivers, subsystem, architecture, etc. that is subject of testing.  Such configs are known to work well for testing huge parts of the system.  However, the configs need to be maintained and evolved as the variability model (i.e., Kconfig, Kbuild, #ifdefs, etc) evolves as well.
 
 2. Using ```$ make randconfig```
     * ```randconfig``` assigns random values to most configuration options, depending on the selected architecture (e.g., ARM, X86_64).  Such random configs are widely used in continuous integrations and have proven to detect a huge amount of bugs -- just browse [Linux mailing lists](http://vger.kernel.org/vger-lists.html).
 
 
-Both approaches (1) and (2) are the main approaches of the Linux community to deal with the problem of finding/generating a set of configs for testing.  Both approaches are *not* systematic at all, since when using (1) we rely on the quality of a limited set of configs.  When using (2) we cannot even be sure if any part of the code we are interested in will be compiled.  The Troll developers believe that a more systematic approach to generate configs for a given driver, subsystem, etc. can greatly improve the efficiency of today's testing frameworks.
+Both approaches (1) and (2) are the main approaches of the Linux community to deal with the problem of finding/generating a set of configs for testing.  Both approaches are *not* systematic at all, since when using (1) we rely on the quality of a limited set of configs.  When using (2) we cannot be sure if any part of the code we are interested in will even be compiled.  The Troll developers believe that a more systematic approach to generate configs for a given driver, subsystem, etc. can greatly improve the efficiency of today's testing.
 
 ## Research Community
 
 The main approach of the research community to tackle the problem of generating a set of configs that cover as many variants of our code as possible is *sampling*.  Research tools, for instance [**Undertaker**](https://undertaker.cs.fau.de), take one source file as input, parse the structure and conditions of #ifdef blocks and transform it into a propositional formula along with constraints from Kconfig and the build system and generate a set of configurations that enable as many #ifdef blocks as possible.  The amount and quality of the generated configs depend on the underlying algorithms.  Medeiros et al. published a nice [paper](http://arxiv.org/abs/1602.02052) on ICSE 2016 comparing 10 sampling algorithms and discuss the quality and scalability of such in great detail.  The Troll developers identified various issues in the state-of-the-art of those research tools:
 
-1. Most algorithms do not scale well, especially when considering constraints from Kconfig and the build system.  Troll developers currently use Undertaker's statement-coverage algorithm, which is known to scale well (see [USENIX 2014 paper](https://www4.cs.fau.de/Publications/2014/tartler_14_usenix.pdf)); other algorithms yield better results, but do not scale as well as statement-coverage.
+1. Most algorithms do not scale well, especially when considering constraints from Kconfig and the build system.  Troll developers currently use Undertaker's statement-coverage algorithm, which is known to scale well (see [USENIX 2014 paper](https://www4.cs.fau.de/Publications/2014/tartler_14_usenix.pdf)); other algorithms yield better results in terms of fault detection, but do not scale as well as statement-coverage.
 
 2. *All* algorithms work only locally (i.e., on a file basis).  Undertaker takes one file as input and generates configs for exactly this file.  Hence if we want to generate configs for 1,000 source files we receive 1,000+ configs, each of them exploring the variability space of one file.
 
-The main issue with the current state-of-the-art in the research community considering generating configs for testing is that the generated configs relate to one file only.  Hence we have many configs that enable a small portion of the kernel.  We want few configs that enable as many variants as possible; it is unacceptable and maybe impossible to build 1000k+ highly redundant configs.
+The main issue with the current state-of-the-art in the research community considering generating configs for testing is that the generated configs relate to one file only.  Hence we have many configs that enable a small portion of the kernel.  We want few configs that enable as much code of interest as possible; it is unacceptable and maybe impossible to build 1000k+ highly redundant configs.
 
 ### Merging Configurations
 
@@ -93,13 +93,13 @@ At this point we used **Troll** to merge previously generated partial configurat
 
 To evaluate our configs we use two metrics:
 
-1. **Configuration coverage**: in other words the amount of #ifdef blocks being compiled by a config.  There is some handy scripts shipped with Troll to do such analysis.
+1. **Block coverge**: The amount of C preprocessor #ifdef blocks being compiled by a specified configuration.
 
-2. Amount of **GCC warnings**: it's a widely used metric to compare the quality/coverage of configs.
+2. **Sparse warnings**: [Sparse](https://github.com/vrothberg/troll) is a static analysis tool, initially developed by Linus Torvalds to find coding faults in the Linux kernel such as mixing pointers to user and kernel address spaces or unexpected acquiring and releases of locks.
 
-In the following table, we compare three kinds of configs.  We compare our 121 Troll'ed configs with 121 randconfigs.  A huge **thank you** to *Greg Kroah-Hartman* (USB maintainer among many other things) for kindly sharing the Kernel config he uses to build test USB related code, which we take as a baseline.  The table compares the **Top n** configs from Troll and randconfig.  Note that the Troll Top n are sorted w.r.t. their IDs, randconfigs are sorted w.r.t. to the amount of config options being either set to 'y' or 'm' -- the hypothesis is that the more options are enabled the higher coverage is.
+In the following table, we compare three kinds of configs.  We compare our 121 Troll'ed configs with 121 randconfigs.  A huge **thank you** to *Greg Kroah-Hartman* (USB maintainer among many other things) for kindly sharing the Kernel config he uses to build test USB related code, which we take as a baseline.  The table compares the **Top n** configs from Troll and randconfig.  Note that the Troll Top n are sorted w.r.t. their IDs, randconfigs are sorted w.r.t. to the amount of config options being either set to 'y' or 'm' -- the hypothesis is that the more options are enabled the higher the block coverage is.
 
-We can see that Troll'ed configs instantly outperform the baseline with the first config, and show considerable improvements with the Top 3 configs.  Although randconfig yields more GCC warnings at Top 2 than baseline, it can only beat Troll'ed configs when considering all configurations.
+The Table below compares the merged configurations of Troll with 121 automatically randomized ones, which we generated using the built-in Linux make target ```randconfig}```.  We further take the pre-defined kernel configuration of USB maintainer Greg Kroah-Hartman as a baseline that we seek to improve.  The **Top n** sorting metric for configurations of Troll is the size of the clique -- assuming the bigger the clique the better.  The sorting metric for randomized configurations is the amount of enabled options -- assuming that the more enabled options the better.  The data in Table~\ref{table:eval_usb} shows the biggest clique merged by Troll (i.e., Top 1) yields more Sparse warnings than the baseline, whereas the Top 3 merged configurations beat the baseline in terms of coverage.  In fact, the Top~3 merged ones yield **200 percent** more Sparse warnings and cover **15 percent** more blocks than the baseline, already covering **95 percent** of all enabled blocks by Troll.  On the contrary, it required the Top 10 randomized configurations to increase block coverage and two to increase the amount of Sparse warnings.  The first random configuration enables only 35 C preprocessor blocks.  Nonetheless, all 121 randomized configurations in total reach a higher coverage (i.e, 21 additional blocks) than the merged ones.
 
 In this scenario, Troll shows promising results, especially when considering that the entire process from building the models, sampling the USB source files and merging the partial configurations takes **less than 30 seconds**.  An evaluation in greater detail will be released in a follow-up paper.
 
