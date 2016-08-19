@@ -50,5 +50,5 @@ do
     KCONFIG_ALLCONFIG=$config make allyesconfig > /dev/null
 
     echo "Building kernel.  All CPP warnings will be copied to $config.$SUFIX"
-    time nice -n10 make C=$CHECK -j8 $DIR 2>&1 > /dev/null | coverage-analyzer $PARSE > $config.$SUFIX
+    C=$CHECK time nice -n10 make -j8 $DIR 2>&1 > /dev/null | coverage-analyzer $PARSE > $config.$SUFIX
 done

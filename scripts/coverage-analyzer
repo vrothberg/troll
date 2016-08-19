@@ -47,11 +47,11 @@ def parse_options():
 
     parser.add_argument('--parse-gcc', dest='parse_gcc', action='store_true', default=False,
                         help="parse GCC compiler warnings from stdin, e.g. via "
-                             "'make C=1 2>&1 > /dev/null | ...'")
+                             "'C=1 make 2>&1 > /dev/null | ...'")
 
     parser.add_argument('--parse-cov', dest='parse_cov', action='store_true', default=False,
                         help="parse GCC coverage compiler-warnings from stdin, e.g. via "
-                             "'make C=0 2>&1 > /dev/null | ...'")
+                             "'C=0 make 2>&1 > /dev/null | ...'")
 
     parser.add_argument('--count-warnings', dest='count_warnings', action='store_true', default=False,
                         help="count _unique_ GCC warnings from stdin")
