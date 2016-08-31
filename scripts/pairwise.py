@@ -85,8 +85,9 @@ def read_file(path):
 
 
 def build_pairs(symbols):
+    print(symbols)
     if len(symbols) == 1:
-        return (symbols[0], None)
+        return [(symbols[0], "")]
 
     return itertools.combinations(symbols, 2)
 
@@ -97,7 +98,7 @@ def local_sampling(model, batch):
 
     syms = []
     for sfile in source_files:
-        symbols = parse_source_file(sfile)
+        symbols = list(set(parse_source_file(sfile)))
         for i in range(len(symbols)):
             symbols[i] = "CONFIG_" + symbols[i]
 
@@ -147,7 +148,7 @@ def pairwise(pairs, model):
 
     for pair in pairs:
 
-        if pair[1] is None:
+        if pair[1] == "":
             expr = "\"%s\"" % (pair[0])
             stdout = check_expr(expr, model)
             if stdout:
