@@ -84,6 +84,13 @@ def read_file(path):
     return lines
 
 
+def build_pairs(symbols):
+    if len(symbols) == 1:
+        return (symbols[0], None)
+
+    return itertools.combinations(symbols, 2)
+
+
 def local_sampling(model, batch):
     """Apply local sampling in current directory."""
     source_files = read_file(batch)
@@ -99,7 +106,7 @@ def local_sampling(model, batch):
             print("...skipping")
             continue
         syms.extend(symbols)
-        pairs = itertools.combinations(symbols, 2)
+        pairs = build_pairs(symbols)
         pairwise(pairs, model)
 
     print("Found %s distinct symbols" % len(set(syms)))
@@ -117,7 +124,7 @@ def global_sampling(model):
         symbols[i] = "CONFIG_" + symbols[i]
 
     print("Detected %s distinct symbols in all files." % (len(symbols)))
-    pairs = itertools.combinations(symbols, 2)
+    pairs = build_pairs(symbols)
     pairwise(pairs, model)
 
 
@@ -139,6 +146,28 @@ def pairwise(pairs, model):
     global NVAL
 
     for pair in pairs:
+
+        if pair[1] is None:
+            expr = "\"%s\"" % (pair[0])
+            stdout = check_expr(expr, model)
+            if stdout:
+                with open("config_%s.pair" % NVAL, "w") as fdc:
+                    fdc.write(stdout)
+                NVAL += 1
+            else:
+                NINVAL += 1
+
+            expr = "\"!%s\"" % (pair[0])
+            stdout = check_expr(expr, model)
+            if stdout:
+                with open("config_%s.pair" % NVAL, "w") as fdc:
+                    fdc.write(stdout)
+                NVAL += 1
+            else:
+                NINVAL += 1
+
+            continue
+
         # A && B
         expr = "\"%s && %s\"" % (pair[0], pair[1])
         stdout = check_expr(expr, model)
