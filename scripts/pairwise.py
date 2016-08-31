@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
-"""Pairwise sampling on the Linux kernel."""
+"""Pairwise sampling on the Linux kernel.  Note that a big part of this script
+is copied from checkconfigsymbols.py."""
 
 # (c) 2016 Valentin Rothberg <valentinrothberg@gmail.com>
 #
@@ -49,6 +50,13 @@ def parse_options():
                         required=True,
                         help="undertaker .model file to check against")
 
+
+    parser.add_argument('-l', '--local', dest='local', action='store',
+                        default="",
+                        help="apply local instead of global sampling with "\
+                             "the specified batch file")
+
+
     args = parser.parse_args()
 
     return args
@@ -59,6 +67,46 @@ def main():
 
     args = parse_options()
 
+    if args.local:
+        local_sampling(args.model, args.local)
+    else:
+        global_sampling(args.model)
+
+    print("Generated %s configurations of %s initial pairs" % (NVAL, NVAL+NINVAL))
+
+
+def read_file(path):
+    """ Return lines of @path. """
+    lines = []
+    with open(path, "r") as fdc:
+        for line in fdc.readlines():
+            lines.append(line.strip())
+    return lines
+
+
+def local_sampling(model, batch):
+    """Apply local sampling in current directory."""
+    source_files = read_file(batch)
+
+    syms = []
+    for sfile in source_files:
+        symbols = parse_source_file(sfile)
+        for i in range(len(symbols)):
+            symbols[i] = "CONFIG_" + symbols[i]
+
+        print(sfile + " " + str(len(set(symbols))))
+        if not symbols:
+            print("...skipping")
+            continue
+        syms.extend(symbols)
+        pairs = itertools.combinations(symbols, 2)
+        pairwise(pairs, model)
+
+    print("Found %s distinct symbols" % len(set(syms)))
+
+
+def global_sampling(model):
+    """Apply global sampling in current directory."""
     undefined, defined = check_symbols("")
 
     undefined = set(undefined)
@@ -69,9 +117,8 @@ def main():
         symbols[i] = "CONFIG_" + symbols[i]
 
     print("Detected %s distinct symbols in all files." % (len(symbols)))
-
     pairs = itertools.combinations(symbols, 2)
-    pairwise(pairs, args.model)
+    pairwise(pairs, model)
 
 
 def check_expr(expr, model):
@@ -82,54 +129,55 @@ def check_expr(expr, model):
     return stdout
 
 
+NINVAL = 0
+NVAL = 0
+
 def pairwise(pairs, model):
     """Apply pairwise sampling."""
 
-    cnt_invalid = 0
-    cnt_valid = 0
+    global NINVAL
+    global NVAL
 
     for pair in pairs:
         # A && B
         expr = "\"%s && %s\"" % (pair[0], pair[1])
         stdout = check_expr(expr, model)
         if stdout:
-            with open("config_%s.pair" % cnt_valid, "w") as fdc:
+            with open("config_%s.pair" % NVAL, "w") as fdc:
                 fdc.write(stdout)
-            cnt_valid += 1
+            NVAL += 1
         else:
-            cnt_invalid += 1
+            NINVAL += 1
 
         # !A && !B
         expr = "\"!%s && !%s\"" % (pair[0], pair[1])
         stdout = check_expr(expr, model)
         if stdout:
-            with open("config_%s.pair" % cnt_valid, "w") as fdc:
+            with open("config_%s.pair" % NVAL, "w") as fdc:
                 fdc.write(stdout)
-            cnt_valid += 1
+            NVAL += 1
         else:
-            cnt_invalid += 1
+            NINVAL += 1
 
         # A && !B
         expr = "\"%s && !%s\"" % (pair[0], pair[1])
         stdout = check_expr(expr, model)
         if stdout:
-            with open("config_%s.pair" % cnt_valid, "w") as fdc:
+            with open("config_%s.pair" % NVAL, "w") as fdc:
                 fdc.write(stdout)
-            cnt_valid += 1
+            NVAL += 1
         else:
-            cnt_invalid += 1
+            NINVAL += 1
 
         # !A && B
         expr = "\"!%s && %s\"" % (pair[0], pair[1])
         stdout = check_expr(expr, model)
         if stdout:
-            with open("config_%s.pair" % cnt_valid, "w") as fdc:
+            with open("config_%s.pair" % NVAL, "w") as fdc:
                 fdc.write(stdout)
-            cnt_valid += 1
+            NVAL += 1
         else:
-            cnt_invalid += 1
-
-    print("Generated %s configurations of %s initial pairs" % (cnt_valid, cnt_valid+cnt_invalid))
+            NINVAL += 1
 
 
 def execute(cmd, fail=True):
