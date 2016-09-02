@@ -426,7 +426,7 @@ void dump_graph(char** graph, int gsize)
     stringstream body, header;
 
     // write edges to file as "j i" with j > i
-    int edges = 0;
+    long long edges = 0;
     for (int i = 0; i < gsize; i++) {
         for (int j = i + 1; j < gsize; j++) {
             if (graph[i][j]) {
