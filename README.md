@@ -1,9 +1,9 @@
 # Troll
 
-**Troll** is a tool to merge a specified set of Kconfig configurations to a smaller set of configurations which enable the same code but reduce the necessary builds for testing.
+**Troll** is a tool to merge a specified set of Kconfig configurations to a smaller set of configurations which enable the same code but reduce the necessary builds for testing.  Below you can find some context information and an example of how to use Troll on the USB subsystem in Linux. Please refer to our [research paper](https://www4.cs.fau.de/Publications/2016/rothberg_16_gpce.pdf) for more information and a detailed evaluation.
 
 <p align="center">
-<img src="figures/troll.png" width="400" height="400" />
+<img src="figures/troll.png" width="300" height="300" />
 </p>
 
 # Background: Configurations for Software Testing
@@ -87,24 +87,4 @@ As soon as Troll has finished, we can find a set of new *partial* configurations
 Now we have a bunch of merged partial configurations that we can use for further (static) analysis, build tests, boot tests, run-time tests, etc.  In our experience, Troll generates a small amount of configs with high sizes, and many configs with small sizes (usually of size 1).
 
 
-## Step 4: Results and Evaluation
-
-At this point we used **Troll** to merge previously generated partial configurations in order to reduce the amount of configurations we have to consider for testing.  If we take the use-case above on Linux v4.5 we can merge 776 partial configs to 121  Troll'ed configs, and thereby reduce the amount of configs by around 85%.  This doesn't seem to impress at first sight, but notice that 77 of 121 Troll'ed configs have cardinality 1 (i.e., they could not be merged with another config).  Let's see how good those Troll'ed configs are.
-
-To evaluate our configs we use two metrics:
-
-1. **Block coverge**: The amount of C preprocessor #ifdef blocks being compiled by a specified configuration.
-
-2. **Sparse warnings**: [Sparse](https://github.com/vrothberg/troll) is a static analysis tool, initially developed by Linus Torvalds to find coding faults in the Linux kernel such as mixing pointers to user and kernel address spaces or unexpected acquiring and releases of locks.
-
-In the following table, we compare three kinds of configs.  We compare our 121 Troll'ed configs with 121 randconfigs.  A huge **thank you** to *Greg Kroah-Hartman* (USB maintainer among many other things) for kindly sharing the Kernel config he uses to build test USB related code, which we take as a baseline.  The table compares the **Top n** configs from Troll and randconfig.  Note that the Troll Top n are sorted w.r.t. their IDs, randconfigs are sorted w.r.t. to the amount of config options being either set to 'y' or 'm' -- the hypothesis is that the more options are enabled the higher the block coverage is.
-
-The Table below compares the merged configurations of Troll with 121 automatically randomized ones, which we generated using the built-in Linux make target ```randconfig}```.  We further take the pre-defined kernel configuration of USB maintainer Greg Kroah-Hartman as a baseline that we seek to improve.  The **Top n** sorting metric for configurations of Troll is the size of the clique -- assuming the bigger the clique the better.  The sorting metric for randomized configurations is the amount of enabled options -- assuming that the more enabled options the better.  The data in Table~\ref{table:eval_usb} shows the biggest clique merged by Troll (i.e., Top 1) yields more Sparse warnings than the baseline, whereas the Top 3 merged configurations beat the baseline in terms of coverage.  In fact, the Top~3 merged ones yield **200 percent** more Sparse warnings and cover **15 percent** more blocks than the baseline, already covering **95 percent** of all enabled blocks by Troll.  On the contrary, it required the Top 10 randomized configurations to increase block coverage and two to increase the amount of Sparse warnings.  The first random configuration enables only 35 C preprocessor blocks.  Nonetheless, all 121 randomized configurations in total reach a higher coverage (i.e, 21 additional blocks) than the merged ones.
-
-In this scenario, Troll shows promising results, especially when considering that the entire process from building the models, sampling the USB source files and merging the partial configurations takes **less than 30 seconds**.  An evaluation in greater detail will be released in a follow-up paper.
-
-**Happy Troll'ing!**
-
-<p align="center">
-<img src="figures/usb_table.png" width="700"/>
-</p>
+Please refer to our [research paper](https://www4.cs.fau.de/Publications/2016/rothberg_16_gpce.pdf) for more information and a detailed evaluation.
